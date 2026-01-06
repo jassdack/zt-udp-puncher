@@ -76,7 +76,7 @@ Python スクリプトは、**Swap-Describe** パターンを使用して IPSet 
 ### インストール方法
 
 ```bash
-git clone https://github.com/photoguild/zt-udp-puncher.git
+git clone https://github.com/jassdack/zt-udp-puncher.git
 cd zt-udp-puncher
 chmod +x install_zt_puncher.sh
 sudo ./install_zt_puncher.sh

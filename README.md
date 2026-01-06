@@ -94,7 +94,7 @@ This ensures there is **zero downtime** or "open window" where packets could be 
 ### Installation
 
 ```bash
-git clone https://github.com/photoguild/zt-udp-puncher.git
+git clone https://github.com/jassdack/zt-udp-puncher.git
 cd zt-udp-puncher
 chmod +x install_zt_puncher.sh
 sudo ./install_zt_puncher.sh
