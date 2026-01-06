@@ -13,23 +13,23 @@
 ```mermaid
 graph TD
     subgraph "ZeroTier Layer"
-        ZT[ZeroTier One Daemon]
-        API[Local API :9993]
-        Peer[Remote Peer]
+        ZT["ZeroTier One Daemon"]
+        API["Local API :9993"]
+        Peer["Remote Peer"]
         ZT <-->|UDP P2P| Peer
         ZT -->|Expose Status| API
     end
 
     subgraph "Control Plane (User Space)"
-        Timer[Systemd Timer] -->|Trigger (1min)| Scriptor[update-zt-firewall.py]
+        Timer["Systemd Timer"] -->|Trigger 1min| Scriptor["update-zt-firewall.py"]
         Scriptor -->|GET /peer| API
-        Scriptor -->|Parse IPs| Logic{Extract External IPs}
-        Logic -->|Update| IPSetUtils[ipset Command]
+        Scriptor -->|Parse IPs| Logic{"Extract External IPs"}
+        Logic -->|Update| IPSetUtils["ipset Command"]
     end
 
     subgraph "Data Plane (Kernel Space)"
-        IPSetUtils -->|Swap Atomic| KernelSet[Kernel IPSet (Hash:IP)]
-        Netfilter[Netfilter / UFW Chain]
+        IPSetUtils -->|Swap Atomic| KernelSet["Kernel IPSet (Hash:IP)"]
+        Netfilter["Netfilter / UFW Chain"]
         Netfilter -->|Match src| KernelSet
         KernelSet -->|Allow/Drop| Netfilter
     end

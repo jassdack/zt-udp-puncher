@@ -1,0 +1,5 @@
+# Enforce LF line endings for shell scripts and documentation
+*.sh text eol=lf
+*.md text eol=lf
+LICENSE text eol=lf
+.gitattributes text eol=lf

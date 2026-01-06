@@ -3,23 +3,26 @@ set -e
 
 # ==========================================
 # ZeroTier UDP Hole Puncher Installer (Split-Service Architecture)
+# Copyright (c) 2026 PhotoGuild Inc.
+# Released under the MIT license
+# https://opensource.org/licenses/MIT
 # ==========================================
 
-echo "🔧 インストールを開始するばい..."
+echo "🔧 Starting installation..."
 
-# 1. 依存関係のチェックとインストール
-echo "📦 ipset を確認中..."
+# 1. Check and install dependencies
+echo "📦 Checking for ipset..."
 if ! command -v ipset &> /dev/null;
 then
     apt-get update && apt-get install -y ipset
-    echo "✅ ipset をインストールしたばい"
+    echo "✅ ipset installed"
 else
-    echo "✅ ipset は既に入っとるね"
+    echo "✅ ipset is already installed"
 fi
 
-# 2. Pythonスクリプトの作成
+# 2. Create Python script
 SCRIPT_PATH="/usr/local/bin/update-zt-firewall.py"
-echo "🐍 Pythonスクリプトを $SCRIPT_PATH に書き込み中..."
+echo "🐍 Writing Python script to $SCRIPT_PATH..."
 
 # Python script using quoted heredoc to prevent expansion
 cat << 'EOF' > "$SCRIPT_PATH"
@@ -154,7 +157,7 @@ def main():
     peers = client.get_peers()
     v4_ips, v6_ips = client.extract_ips(peers)
 
-    # 常に実行してipsetの存在を保証する
+    # Always run to ensure ipset exists
     IPSetManager.sync(IPSET_V4_NAME, v4_ips, "inet", args.dry_run)
     IPSetManager.sync(IPSET_V6_NAME, v6_ips, "inet6", args.dry_run)
 
@@ -164,11 +167,11 @@ if __name__ == "__main__":
 EOF
 
 chmod +x "$SCRIPT_PATH"
-echo "✅ スクリプト配置完了"
+echo "✅ Script placement complete"
 
 
-# 3. Systemd Service の作成 (Update Timer Only)
-echo "⏱️ Systemd 設定を更新中..."
+# 3. Create Systemd Service (Update Timer Only)
+echo "⏱️ Updating Systemd settings..."
 
 # zt-firewall-update.service (Periodic Sync)
 # Note: Removed dependency on zt-ipset-prep.service to avoid circular dependency
@@ -179,9 +182,9 @@ printf "[Unit]\nDescription=Run ZeroTier Firewall Update every minute\n\n[Timer]
 
 systemctl daemon-reload
 
-# 4. UFW初期化スクリプトの設定 (/etc/ufw/before.init)
-# Systemdでのipset作成は不安定(循環参照)の原因になるため、UFWのフックで行う
-echo "🛡️ UFW初期化スクリプトを設定中..."
+# 4. Setup UFW initialization script (/etc/ufw/before.init)
+# Use UFW hook because creating ipset via Systemd can cause circular dependencies
+echo "🛡️ Setting up UFW initialization script..."
 
 UFW_INIT_SCRIPT="/etc/ufw/before.init"
 if [ ! -f "$UFW_INIT_SCRIPT" ]; then
@@ -189,10 +192,10 @@ if [ ! -f "$UFW_INIT_SCRIPT" ]; then
     chmod +x "$UFW_INIT_SCRIPT"
 fi
 
-# 冪等性を考慮して追記
+# Append with idempotency in mind
 if ! grep -q "zt-peers-v4" "$UFW_INIT_SCRIPT"; then
-    echo "  -> before.init に ipset作成コマンドを追記します"
-    # shebangがない場合は追加
+    echo "  -> Appending ipset creation commands to before.init"
+    # Add shebang if missing
     if [ ! -s "$UFW_INIT_SCRIPT" ]; then
         echo "#!/bin/sh" >> "$UFW_INIT_SCRIPT"
     fi
@@ -205,57 +208,57 @@ ipset create zt-peers-v6 hash:ip family inet6 hashsize 1024 maxelem 65536 -exist
 EOT
     chmod +x "$UFW_INIT_SCRIPT"
 else
-    echo "  -> before.init に既に設定があります (Skip)"
+    echo "  -> Configuration already exists in before.init (Skip)"
 fi
 
-# 手動でipset作成を実行しておく（初回実行用）
+# Manually run ipset creation (for first run)
 ipset create zt-peers-v4 hash:ip family inet hashsize 1024 maxelem 65536 -exist
 ipset create zt-peers-v6 hash:ip family inet6 hashsize 1024 maxelem 65536 -exist
 
 
-# Update Service自体も有効化しておく (timerだけでなく)
+# Enable Update Service itself (not just the timer)
 systemctl enable zt-firewall-update.service
 
-# Timerを有効化
-echo "⏰ Update Timerを有効化..."
+# Enable Timer
+echo "⏰ Enabling Update Timer..."
 systemctl enable --now zt-firewall-update.timer
 
-# 5. UFWルールの注入 (冪等性を担保)
-echo "🔥 UFWの設定を確認中..."
+# 5. Inject UFW rules (ensure idempotency)
+echo "🔥 Checking UFW settings..."
 
 # IPv4
 if ! grep -q "zt-peers-v4" /etc/ufw/before.rules;
 then
-    echo "  -> IPv4ルールを追加します"
+    echo "  -> Adding IPv4 rule"
     sed -i '/# End required lines/a -A ufw-before-input -m set --match-set zt-peers-v4 src -p udp -j ACCEPT' /etc/ufw/before.rules
 else
-    echo "  -> IPv4ルールは既にあります (Skip)"
+    echo "  -> IPv4 rule already exists (Skip)"
 fi
 
 # IPv6
 if ! grep -q "zt-peers-v6" /etc/ufw/before6.rules;
 then
-    echo "  -> IPv6ルールを追加します"
+    echo "  -> Adding IPv6 rule"
     sed -i '/# End required lines/a -A ufw6-before-input -m set --match-set zt-peers-v6 src -p udp -j ACCEPT' /etc/ufw/before6.rules
 else
-    echo "  -> IPv6ルールは既にあります (Skip)"
+    echo "  -> IPv6 rule already exists (Skip)"
 fi
 
-# 6. 仕上げ
-echo "🔄 UFWをリロード中..."
+# 6. Finishing up
+echo "🔄 Reloading UFW..."
 ufw reload
 
-# 初回アップデート試行
-echo "🚀 初回アップデート実行..."
+# Try initial update
+echo "🚀 Executing initial update..."
 if systemctl restart zt-firewall-update.service; then
-    echo "✅ 初回アップデート成功"
+    echo "✅ Initial update successful"
 else
-    echo "⚠️ 初回アップデートに失敗しました (API準備中かも? 1分後のタイマーに任せます)"
+    echo "⚠️ Initial update failed (API might be preparing? Leaving it to the timer in 1 minute)"
 fi
 
-echo "🎉 インストール完了！"
+echo "🎉 Installation complete!"
 echo "---------------------------------------------------"
-echo "構成が改善されたばい！"
-echo "1. /etc/ufw/before.init: UFWロード前に安全にipsetを作成"
-echo "2. zt-firewall-update.timer: 1分毎に最新IPを同期"
+echo "Configuration has been improved!"
+echo "1. /etc/ufw/before.init: Safely create ipset before UFW loads"
+echo "2. zt-firewall-update.timer: Sync latest IPs every minute"
 echo "---------------------------------------------------"

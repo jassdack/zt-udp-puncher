@@ -3,23 +3,26 @@ set -e
 
 # ==========================================
 # ZeroTier UDP Hole Puncher Uninstaller
+# Copyright (c) 2026 PhotoGuild Inc.
+# Released under the MIT license
+# https://opensource.org/licenses/MIT
 # ==========================================
 
-echo "🗑️ アンインストールを開始するばい..."
+echo "🗑️ Starting uninstallation..."
 
-# 1. Systemd サービスとタイマーの停止・無効化
-echo "🛑 Systemdサービスを停止中..."
+# 1. Stop and disable Systemd service and timer
+echo "🛑 Stopping Systemd service..."
 systemctl stop zt-firewall-update.timer 2>/dev/null || true
 systemctl stop zt-firewall-update.service 2>/dev/null || true
 systemctl disable zt-firewall-update.timer 2>/dev/null || true
 systemctl disable zt-firewall-update.service 2>/dev/null || true
 
-# 旧サービスの停止（念のため）
+# Stop old service (just in case)
 systemctl stop zt-ipset-prep.service 2>/dev/null || true
 systemctl disable zt-ipset-prep.service 2>/dev/null || true
 
-# 2. ファイルの削除
-echo "🧹 ファイルを削除中..."
+# 2. Delete files
+echo "🧹 Deleting files..."
 rm -f /etc/systemd/system/zt-firewall-update.service
 rm -f /etc/systemd/system/zt-firewall-update.timer
 rm -f /etc/systemd/system/zt-ipset-prep.service
@@ -27,47 +30,47 @@ rm -f /usr/local/bin/update-zt-firewall.py
 
 systemctl daemon-reload
 
-# 3. UFW初期化スクリプト(/etc/ufw/before.init)の掃除
-echo "🧹 /etc/ufw/before.init をクリーンアップ中..."
+# 3. Clean up UFW initialization script (/etc/ufw/before.init)
+echo "🧹 Cleaning up /etc/ufw/before.init..."
 UFW_INIT_SCRIPT="/etc/ufw/before.init"
 if [ -f "$UFW_INIT_SCRIPT" ]; then
-    # 追記したブロックを削除（sedで開始〜終了パターンを削除）
-    # 開始: # ZeroTier IPSet Creation (Added by install_zt_puncher.sh)
-    # 終了: ipset create zt-peers-v6 ... の次の行まで
-    # 簡易的に、特定のキーワードを含む行を削除する
+    # Delete the appended block (using sed to remove start~end pattern)
+    # Start: # ZeroTier IPSet Creation (Added by install_zt_puncher.sh)
+    # End: until the line after ipset create zt-peers-v6 ...
+    # Simply delete lines containing specific keywords
     sed -i '/# ZeroTier IPSet Creation/d' "$UFW_INIT_SCRIPT"
     sed -i '/ipset create zt-peers-v4/d' "$UFW_INIT_SCRIPT"
     sed -i '/ipset create zt-peers-v6/d' "$UFW_INIT_SCRIPT"
     
-    # ファイルが空、またはシェバンだけなら削除してもいいが、
-    # ユーザーが他の用途で使ってるかもしれないので、副作用を避けてファイルは残す
-    echo "  -> before.init から設定を削除しました"
+    # If the file is empty or only contains shebang, we could delete it,
+    # but since the user might use it for other purposes, we keep the file to avoid side effects
+    echo "  -> Removed settings from before.init"
 else
-    echo "  -> before.init は見つかりませんでした (Skip)"
+    echo "  -> before.init not found (Skip)"
 fi
 
-# 4. UFWルールの削除
-echo "🔥 UFWルールを削除中..."
+# 4. Delete UFW rules
+echo "🔥 Deleting UFW rules..."
 
 # IPv4
 if [ -f /etc/ufw/before.rules ]; then
     sed -i '/-m set --match-set zt-peers-v4 src -p udp -j ACCEPT/d' /etc/ufw/before.rules
-    echo "  -> IPv4ルールを削除しました"
+    echo "  -> IPv4 rule deleted"
 fi
 
 # IPv6
 if [ -f /etc/ufw/before6.rules ]; then
     sed -i '/-m set --match-set zt-peers-v6 src -p udp -j ACCEPT/d' /etc/ufw/before6.rules
-    echo "  -> IPv6ルールを削除しました"
+    echo "  -> IPv6 rule deleted"
 fi
 
-# 5. UFWリロードとIPSet破棄
-echo "🔄 UFWをリロード中..."
+# 5. Reload UFW and destroy IPSet
+echo "🔄 Reloading UFW..."
 ufw reload
 
-echo "🗑️ IPSetを破棄中..."
+echo "🗑️ Destroying IPSet..."
 ipset destroy zt-peers-v4 2>/dev/null || true
 ipset destroy zt-peers-v6 2>/dev/null || true
 
-echo "🎉 アンインストール完了したばい！"
-echo "完全に元に戻ったけん、安心してね。"
+echo "🎉 Uninstallation complete!"
+echo "Everything is back to normal."

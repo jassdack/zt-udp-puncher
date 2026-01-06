@@ -1,10 +1,28 @@
 # ZeroTier UDP Puncher
 
+![License](https://img.shields.io/badge/License-MIT-green)
+![Shell](https://img.shields.io/badge/Shell-Script-blue)
+![Python](https://img.shields.io/badge/Python-3-yellow)
+
 **[日本語](README_ja.md)** | English
 
 **Engineered for Reliability: Dynamic, High-Performance Firewall Hole Punching for ZeroTier**
 
 This tool dramatically increases the success rate of ZeroTier P2P (Direct) connections by dynamically managing UFW firewall rules via IPSet. It solves the critical problem of UDP packet blocking in strict Linux firewall environments without compromising security by opening wide port ranges.
+
+## Table of Contents
+- [Architecture & Data Flow](#architecture--data-flow)
+- [Key Features](#key-features)
+- [Components & Configuration](#components--configuration)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Configuration](#environment-variables-advanced-configuration)
+- [Observability & Troubleshooting](#observability--troubleshooting)
+- [Security Model](#security-model--why-haship)
+- [Uninstall](#uninstall)
+- [License](#license)
+
+---
 
 ## 🏗️ Architecture & Data Flow
 
@@ -13,23 +31,23 @@ Detailed interaction between the system components: ZeroTier, the Python update 
 ```mermaid
 graph TD
     subgraph "ZeroTier Layer"
-        ZT[ZeroTier One Daemon]
-        API[Local API :9993]
-        Peer[Remote Peer]
+        ZT["ZeroTier One Daemon"]
+        API["Local API :9993"]
+        Peer["Remote Peer"]
         ZT <-->|UDP P2P| Peer
         ZT -->|Expose Status| API
     end
 
     subgraph "Control Plane (User Space)"
-        Timer[Systemd Timer] -->|Trigger (1min)| Scriptor[update-zt-firewall.py]
+        Timer["Systemd Timer"] -->|Trigger 1min| Scriptor["update-zt-firewall.py"]
         Scriptor -->|GET /peer| API
-        Scriptor -->|Parse IPs| Logic{Extract External IPs}
-        Logic -->|Update| IPSetUtils[ipset Command]
+        Scriptor -->|Parse IPs| Logic{"Extract External IPs"}
+        Logic -->|Update| IPSetUtils["ipset Command"]
     end
 
     subgraph "Data Plane (Kernel Space)"
-        IPSetUtils -->|Swap Atomic| KernelSet[Kernel IPSet (Hash:IP)]
-        Netfilter[Netfilter / UFW Chain]
+        IPSetUtils -->|Swap Atomic| KernelSet["Kernel IPSet (Hash:IP)"]
+        Netfilter["Netfilter / UFW Chain"]
         Netfilter -->|Match src| KernelSet
         KernelSet -->|Allow/Drop| Netfilter
     end
@@ -37,7 +55,7 @@ graph TD
     Peer -.->|UDP Packet| Netfilter
 ```
 
-## 🚀 Key Features from an Engineering Perspective
+## 🚀 Key Features
 
 ### 1. O(1) Packet Filtering Performance
 Unlike traditional firewall scripts that append `iptables` rules linearly (O(n) complexity), this tool utilizes **IPSet** (`hash:ip` type).
@@ -129,3 +147,7 @@ Cleanly remove all services, timers, scripts, and revert UFW/IPSet configuration
 ```bash
 sudo ./uninstall_zt_puncher.sh
 ```
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
