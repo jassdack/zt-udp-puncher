@@ -50,25 +50,30 @@ else
 fi
 
 # 4. Delete UFW rules
+# Matches the rules of every version (old: "--match-set zt-peers-v4 src -p udp",
+# new: "-p udp ... --match-set zt-peers-v4 src,dst")
 echo "🔥 Deleting UFW rules..."
 
 # IPv4
 if [ -f /etc/ufw/before.rules ]; then
-    sed -i '/-m set --match-set zt-peers-v4 src -p udp -j ACCEPT/d' /etc/ufw/before.rules
+    sed -i '/--match-set zt-peers-v4 /d' /etc/ufw/before.rules
     echo "  -> IPv4 rule deleted"
 fi
 
 # IPv6
 if [ -f /etc/ufw/before6.rules ]; then
-    sed -i '/-m set --match-set zt-peers-v6 src -p udp -j ACCEPT/d' /etc/ufw/before6.rules
+    sed -i '/--match-set zt-peers-v6 /d' /etc/ufw/before6.rules
     echo "  -> IPv6 rule deleted"
 fi
 
 # 5. Reload UFW and destroy IPSet
+# (ufw reload first, so that no loaded rule references the sets; destroy works for any set type)
 echo "🔄 Reloading UFW..."
 ufw reload
 
 echo "🗑️ Destroying IPSet..."
+ipset destroy zt-peers-v4-tmp 2>/dev/null || true
+ipset destroy zt-peers-v6-tmp 2>/dev/null || true
 ipset destroy zt-peers-v4 2>/dev/null || true
 ipset destroy zt-peers-v6 2>/dev/null || true
 
